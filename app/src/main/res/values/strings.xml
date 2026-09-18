@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Dex Touchpad</string>
+    <string name="status_initializing">Initializing…</string>
+    <string name="left_click">Left Click</string>
+    <string name="right_click">Right Click</string>
+    <string name="sensitivity">Sensitivity</string>
+    <string name="reconnect_shizuku">Reconnect Shizuku</string>
 </resources>

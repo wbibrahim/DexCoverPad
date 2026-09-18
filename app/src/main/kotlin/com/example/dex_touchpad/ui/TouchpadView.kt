@@ -1,5 +1,6 @@
 package com.example.dex_touchpad.ui
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.SharedPreferences
 import android.graphics.Canvas
@@ -52,6 +53,7 @@ class TouchpadView @JvmOverloads constructor(
         style = Paint.Style.FILL
         alpha = 180
     }
+    private val drawingBounds = RectF()
 
     private val handler = Handler(Looper.getMainLooper())
     private var lastX = 0f
@@ -87,6 +89,7 @@ class TouchpadView @JvmOverloads constructor(
         }
     }
 
+    @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
         gestureDetector.onTouchEvent(event)
         return if (event.pointerCount > 1) {
@@ -189,9 +192,9 @@ class TouchpadView @JvmOverloads constructor(
     fun getSensitivity(): Float = sensitivity
 
     override fun onDraw(canvas: Canvas) {
-        val rect = RectF(0f, 0f, width.toFloat(), height.toFloat())
-        canvas.drawRoundRect(rect, 16f, 16f, backgroundPaint)
-        canvas.drawRoundRect(rect, 16f, 16f, borderPaint)
+        drawingBounds.set(0f, 0f, width.toFloat(), height.toFloat())
+        canvas.drawRoundRect(drawingBounds, 16f, 16f, backgroundPaint)
+        canvas.drawRoundRect(drawingBounds, 16f, 16f, borderPaint)
         if (isTouching && !isMultiTouch) {
             canvas.drawCircle(touchX, touchY, 30f, touchPaint)
         }

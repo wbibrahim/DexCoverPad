@@ -4,8 +4,7 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:padding="16dp"
-    android:gravity="center"
-    android:background="@color/background">
+    android:gravity="center">
 
     <TextView
         android:layout_width="wrap_content"
@@ -20,7 +19,7 @@
         android:id="@+id/status_text"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Initializing..."
+        android:text="@string/status_initializing"
         android:textSize="14sp"
         android:textColor="@color/text_secondary"
         android:gravity="center"
@@ -34,25 +33,28 @@
         android:layout_marginBottom="16dp" />
 
     <LinearLayout
+        style="?android:attr/buttonBarStyle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:layout_marginBottom="12dp">
 
         <Button
+            style="?android:attr/buttonBarButtonStyle"
             android:id="@+id/btn_left_click"
             android:layout_width="0dp"
             android:layout_height="48dp"
             android:layout_weight="1"
-            android:text="Left Click"
+            android:text="@string/left_click"
             android:layout_marginEnd="8dp" />
 
         <Button
+            style="?android:attr/buttonBarButtonStyle"
             android:id="@+id/btn_right_click"
             android:layout_width="0dp"
             android:layout_height="48dp"
             android:layout_weight="1"
-            android:text="Right Click"
+            android:text="@string/right_click"
             android:layout_marginStart="8dp" />
 
     </LinearLayout>
@@ -60,7 +62,7 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Sensitivity"
+        android:text="@string/sensitivity"
         android:textColor="@color/text_primary"
         android:layout_marginBottom="4dp" />
 
@@ -76,6 +78,6 @@
         android:id="@+id/btn_reconnect"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Reconnect Shizuku" />
+        android:text="@string/reconnect_shizuku" />
 
 </LinearLayout>

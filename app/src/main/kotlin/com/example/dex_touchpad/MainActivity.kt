@@ -7,12 +7,12 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.ServiceConnection
 import android.content.SharedPreferences
-import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
 import android.util.Log
 import android.widget.SeekBar
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import com.example.dex_touchpad.BuildConfig
 import com.example.dex_touchpad.IMouseControl
 import com.example.dex_touchpad.databinding.ActivityMainBinding
@@ -67,13 +67,9 @@ class MainActivity : AppCompatActivity() {
                     Log.d(TAG, "Received binder from native service")
                     // Try BinderContainer wrapper first, then fall back to raw IBinder extra
                     val rawBinder: IBinder? = runCatching {
-                        val container: BinderContainer? = if (Build.VERSION.SDK_INT >= 33) {
-                            intent.getParcelableExtra("binder", BinderContainer::class.java)
-                        } else {
-                            @Suppress("DEPRECATION")
-                            intent.getParcelableExtra("binder")
-                        }
-                        container?.getBinder()
+                        @Suppress("DEPRECATION")
+                        val container = intent.getParcelableExtra<BinderContainer>("binder")
+                        container?.binder
                     }.getOrNull() ?: intent.extras?.getBinder("binder")
 
                     if (rawBinder != null) {
@@ -186,11 +182,14 @@ class MainActivity : AppCompatActivity() {
             addAction(ACTION_SEND_BINDER)
             addAction(ACTION_SERVICE_EXIT)
         }
-        if (Build.VERSION.SDK_INT >= 33) {
-            registerReceiver(binderReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            registerReceiver(binderReceiver, filter)
-        }
+        // The native helper runs under Shizuku's shell UID, so this receiver must
+        // accept broadcasts from outside the app process.
+        ContextCompat.registerReceiver(
+            this,
+            binderReceiver,
+            filter,
+            ContextCompat.RECEIVER_EXPORTED
+        )
         isBroadcastRegistered = true
     }
 

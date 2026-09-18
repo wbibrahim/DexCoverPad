@@ -15,11 +15,33 @@ android {
         versionName = "2.0"
     }
 
+    val releaseStoreFile = file("keystore.jks")
+    val releaseKeyAlias = providers.environmentVariable("SIGNING_KEY_ALIAS").orNull
+    val releaseKeyPassword = providers.environmentVariable("SIGNING_KEY_PASSWORD").orNull
+    val releaseStorePassword = providers.environmentVariable("SIGNING_STORE_PASSWORD").orNull
+    val hasReleaseSigning = releaseStoreFile.isFile && listOf(
+        releaseKeyAlias,
+        releaseKeyPassword,
+        releaseStorePassword
+    ).all { !it.isNullOrBlank() }
+
+    val releaseSigningConfig = if (hasReleaseSigning) {
+        signingConfigs.create("release") {
+            storeFile = releaseStoreFile
+            keyAlias = releaseKeyAlias
+            keyPassword = releaseKeyPassword
+            storePassword = releaseStorePassword
+        }
+    } else {
+        null
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = signingConfigs.getByName("debug")
+            // Keep local release builds convenient while using the real key in CI.
+            signingConfig = releaseSigningConfig ?: signingConfigs.getByName("debug")
         }
     }
 
@@ -33,8 +55,16 @@ android {
     }
 
     buildFeatures {
+        aidl = true
         viewBinding = true
         buildConfig = true
+    }
+
+    packaging {
+        jniLibs {
+            keepDebugSymbols += "**/libdextouchpad.so"
+            useLegacyPackaging = true
+        }
     }
 }
 
