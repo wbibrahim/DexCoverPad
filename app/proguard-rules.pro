@@ -1,3 +1,0 @@
--keep class com.example.dex_touchpad.IMouseControl { *; }
--keep class com.example.dex_touchpad.IMouseControl$* { *; }
--keep class com.example.dex_touchpad.IMouseControl$Stub { *; }

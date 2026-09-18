@@ -34,7 +34,7 @@ Output: `app/build/outputs/apk/release/app-release.apk`
 
 - Shizuku grants shell-level privileges without permanent ADB
 - The app launches a `UserService` via Shizuku running with elevated UID
-- The `UserService` loads `libdextouchpad.so` which creates a virtual UHid mouse device
+- The `UserService` loads `libdextouchpad.so` through JNI and creates a virtual UHID mouse device
 - Touch input on the cover display is translated to mouse movements sent to the virtual device
 - DeX sees the virtual mouse as a real cursor controller
 

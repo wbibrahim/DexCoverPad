@@ -1,10 +1,8 @@
 package com.example.dex_touchpad
 
-import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.content.ServiceConnection
 import android.content.SharedPreferences
 import android.os.Bundle
@@ -12,11 +10,9 @@ import android.os.IBinder
 import android.util.Log
 import android.widget.SeekBar
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
 import com.example.dex_touchpad.BuildConfig
 import com.example.dex_touchpad.IMouseControl
 import com.example.dex_touchpad.databinding.ActivityMainBinding
-import com.example.dex_touchpad.services.BinderContainer
 import com.example.dex_touchpad.services.ShizukuUserService
 import com.example.dex_touchpad.services.TouchpadService
 import rikka.shizuku.Shizuku
@@ -27,8 +23,6 @@ private const val SHIZUKU_REQUEST_CODE = 100
 private const val PREFS_NAME = "dex_touchpad_prefs"
 private const val PREF_SENSITIVITY = "sensitivity"
 private const val DEFAULT_SENSITIVITY = 1.5f
-private const val ACTION_SEND_BINDER = "intent.dextouchpad.sendBinder"
-private const val ACTION_SERVICE_EXIT = "intent.dextouchpad.exit"
 
 class MainActivity : AppCompatActivity() {
 
@@ -38,58 +32,43 @@ class MainActivity : AppCompatActivity() {
     private var touchpadService: TouchpadService? = null
     private var mouseControl: IMouseControl? = null
     private var isUserServiceBound = false
-    private var isBroadcastRegistered = false
 
-    // Shizuku UserService — runs as shell UID, starts the native process
+    // Shizuku UserService runs as shell UID and owns the virtual mouse.
     private val userServiceArgs = UserServiceArgs(
         ComponentName(BuildConfig.APPLICATION_ID, ShizukuUserService::class.java.name)
-    ).daemon(false).processNameSuffix("user_service").debuggable(false).version(1)
+    ).daemon(false)
+        .tag("mouse")
+        .processNameSuffix("user_service")
+        .debuggable(false)
+        .version(2)
 
-    // Connection for the Shizuku user service (just used to start the native process)
     private val userServiceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
-            Log.d(TAG, "Shizuku UserService connected — native process should be starting")
-            updateStatus("Starting native service...")
-            // The native process will send us a binder via broadcast once ready
+            Log.d(TAG, "Shizuku UserService connected")
+            val control = IMouseControl.Stub.asInterface(service)
+            try {
+                if (control?.isReady == true) {
+                    mouseControl = control
+                    touchpadService?.setMouseControl(control)
+                    binding.touchpadView.mouseControlService = control
+                    updateStatus("Connected — touchpad active")
+                } else {
+                    val reason = control?.error ?: "virtual mouse did not start"
+                    clearMouseControl()
+                    updateStatus("Could not start touchpad: $reason")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Could not initialize mouse service", e)
+                clearMouseControl()
+                updateStatus("Could not start touchpad: ${e.message ?: "service error"}")
+            }
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
             Log.d(TAG, "Shizuku UserService disconnected")
             isUserServiceBound = false
-        }
-    }
-
-    // Receives the IMouseControl binder from the native privileged process
-    private val binderReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            when (intent?.action) {
-                ACTION_SEND_BINDER -> {
-                    Log.d(TAG, "Received binder from native service")
-                    // Try BinderContainer wrapper first, then fall back to raw IBinder extra
-                    val rawBinder: IBinder? = runCatching {
-                        @Suppress("DEPRECATION")
-                        val container = intent.getParcelableExtra<BinderContainer>("binder")
-                        container?.binder
-                    }.getOrNull() ?: intent.extras?.getBinder("binder")
-
-                    if (rawBinder != null) {
-                        mouseControl = IMouseControl.Stub.asInterface(rawBinder)
-                        touchpadService?.setMouseControl(mouseControl)
-                        binding.touchpadView.mouseControlService = mouseControl
-                        updateStatus("Connected — touchpad active")
-                    } else {
-                        Log.e(TAG, "Received null binder")
-                        updateStatus("Error: received null binder")
-                    }
-                }
-                ACTION_SERVICE_EXIT -> {
-                    Log.d(TAG, "Native service exited")
-                    mouseControl = null
-                    touchpadService?.setMouseControl(null)
-                    binding.touchpadView.mouseControlService = null
-                    updateStatus("Service stopped")
-                }
-            }
+            clearMouseControl()
+            updateStatus("Touchpad service disconnected — tap Reconnect")
         }
     }
 
@@ -135,7 +114,6 @@ class MainActivity : AppCompatActivity() {
 
         setupSensitivityControl()
         setupButtons()
-        registerBroadcastReceiver()
         registerShizukuListeners()
 
         startForegroundService(Intent(this, TouchpadService::class.java))
@@ -158,10 +136,6 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         unregisterShizukuListeners()
-        if (isBroadcastRegistered) {
-            unregisterReceiver(binderReceiver)
-            isBroadcastRegistered = false
-        }
         if (isUserServiceBound) {
             try {
                 Shizuku.unbindUserService(userServiceArgs, userServiceConnection, true)
@@ -175,22 +149,6 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Exception) {
             Log.w(TAG, "Error unbinding touchpad service", e)
         }
-    }
-
-    private fun registerBroadcastReceiver() {
-        val filter = IntentFilter().apply {
-            addAction(ACTION_SEND_BINDER)
-            addAction(ACTION_SERVICE_EXIT)
-        }
-        // The native helper runs under Shizuku's shell UID, so this receiver must
-        // accept broadcasts from outside the app process.
-        ContextCompat.registerReceiver(
-            this,
-            binderReceiver,
-            filter,
-            ContextCompat.RECEIVER_EXPORTED
-        )
-        isBroadcastRegistered = true
     }
 
     private fun registerShizukuListeners() {
@@ -276,8 +234,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun reconnect() {
-        mouseControl = null
-        binding.touchpadView.mouseControlService = null
+        clearMouseControl()
         if (isUserServiceBound) {
             try {
                 Shizuku.unbindUserService(userServiceArgs, userServiceConnection, true)
@@ -288,6 +245,12 @@ class MainActivity : AppCompatActivity() {
         }
         updateStatus("Reconnecting...")
         checkShizukuAndConnect()
+    }
+
+    private fun clearMouseControl() {
+        mouseControl = null
+        touchpadService?.setMouseControl(null)
+        binding.touchpadView.mouseControlService = null
     }
 
     private fun updateStatus(status: String) {
